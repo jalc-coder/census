@@ -1,0 +1,285 @@
+---
+title: "Census"
+output: html_notebook
+---
+
+```{r}
+library(tidycensus)
+library(tidyverse)
+library(plotly)
+census_api_key("48d4d81a0fa8d5337f768263777694af1f78eb1a", install=TRUE)
+```
+
+```{r}
+vars<-load_variables(2019, "acs1")
+View(vars)
+```
+
+```{r}
+population.zip<-get_acs(geography = "zcta", state="IL", variables= c(TotalPop="B01001_001",male = "B01001_002", maleu5="B01001_003", maleu9="B01001_004", maleu14="B01001_005", maleu17="B01001_006", maleu19="B01001_007", male20="B01001_008", male21="B01001_009", maleu24="B01001_010", maleu29="B01001_011", maleu34="B01001_012", maleu39="B01001_013", maleu44="B01001_014", maleu49="B01001_015", maleu54="B01001_016", maleu59="B01001_017", maleu61="B01001_018", maleu64="B01001_019", maleu66="B01001_020", maleu69="B01001_021", maleu74="B01001_022", maleu79="B01001_023", maleu84="B01001_024", male85="B01001_025", female = "B01001_026", femaleu5="B01001_027", femaleu9="B01001_028", femaleu14="B01001_029", femaleu17="B01001_030", femaleu19="B01001_031", female20="B01001_032", female21="B01001_033", femaleu24="B01001_034", femaleu29="B01001_035", femaleu34="B01001_036", femaleu39="B01001_037", femaleu44="B01001_038", femaleu49="B01001_039", femaleu54="B01001_040", femaleu59="B01001_041", femaleu61="B01001_042", femaleu64="B01001_043", femaleu66="B01001_044", femaleu69="B01001_045", femaleu74="B01001_046", femaleu79="B01001_047", femaleu84="B01001_048", female85="B01001_049", foreignborn="B05002_013", veteran="B21001_002"), output="wide")
+race.zip<-get_acs(geography="zcta", state="IL", variables=c(whitealone="B02001_002", blackalone="B02001_003", nativealone="B02001_004", asianalone="B02001_005", hawaianalone="B02001_006", other="B02001_007", multi="B02001_008", hispanic="B03002_012"), output="wide")
+housing.zip<-get_acs(geography="zcta", state="IL", variables=c(housingunits="B07013_001", owneroccupied="B07013_002", medianvalue="B25077_001", withmortgage="B25097_002", withoutmortgage="B25097_003", medianhousingcost="B25105_001"), , output="wide")
+living.zip<-get_acs(geography="zcta", state="IL", variables=c(household="B28001_001", nocomputer="B28001_011", broadband="B99283_003", samehouse="B07004C_002", languageathometotal="C16001_001", langaugeathomeenglish="C16001_002"), output="wide")
+health.zip<-get_acs(geography="zcta", state="IL", variables=c(highschoolorhigher="B16010_002", bachelororhigher="B06009_005"), output="wide")
+income.zip<-get_acs(geography="zcta", state="IL", variables=c(medianincome="B19001_001", percapita="B19301_001"), output="wide")
+```
+```{r}
+col_index <- seq(1:ncol(population.zip)) 
+popnoe.zip<-population.zip %>% select(col_index[col_index %% 2 != 0])
+#order is:
+#zip code, total population, male population, female population, male population u14, male population 15-17, male population 18-20, male population 21-24
+pop.zip<-data.frame(popnoe.zip[,1:3], popnoe.zip[,2]-popnoe.zip[,3], popnoe.zip[,4]+ popnoe.zip[,5]+popnoe.zip[,6], popnoe.zip[,7]+popnoe.zip[,8], popnoe.zip[,9]+popnoe.zip[,10], popnoe.zip[,11]+popnoe.zip[,12], popnoe.zip[,13], popnoe.zip[,14]+popnoe.zip[,15], popnoe.zip[,16]+popnoe.zip[,17], popnoe.zip[,18]+ popnoe.zip[,19]+ popnoe.zip[,20], popnoe.zip[,21]+popnoe.zip[,22]+popnoe.zip[,23]+popnoe.zip[,24]+popnoe.zip[,25]+popnoe.zip[,26], popnoe.zip[,28]+ popnoe.zip[,29]+popnoe.zip[,30], popnoe.zip[,31]+popnoe.zip[,32], popnoe.zip[,33]+popnoe.zip[,34], popnoe.zip[,35]+popnoe.zip[,36], popnoe.zip[,37], popnoe.zip[,38]+popnoe.zip[,39], popnoe.zip[,40]+popnoe.zip[,41], popnoe.zip[,42]+ popnoe.zip[,43]+ popnoe.zip[,44], popnoe.zip[,45]+popnoe.zip[,46]+popnoe.zip[,47]+popnoe.zip[,48]+popnoe.zip[,49]+popnoe.zip[,50], popnoe.zip[,51], popnoe.zip[,52]) 
+colnames(pop.zip)<-c("Zip", "TotalPop", "MalePop", "FemalePop", "MaleU14", "Male15-17", "Male18-20", "Male21-24", "Male25-29", "Male30-39", "Male40-49", "Male50-64", "MaleOver65", "FemaleU14", "Female15-17", "Female18-20", "Female21-24", "Female25-29", "Female30-39", "Female40-49", "Female50-64", "FemaleOver65", "ForeignBorn", "veteran")
+head(pop.zip)
+```
+
+```{r}
+franklin.zip<-c("62840", "62874", "62896")
+jackson.zip<-c("62901", "62902", "62903", "62907", "62916", "62924", "62927", "62932", "62940", "62950", "62966", "62971", "62994")
+perry.zip<-c("62832")
+randolph.zip<-c("62272")
+williamson.zip<-c("62841", "62915", "62918", "62921", "62922", "62933", "62948", "62949", "62951", "62959", "62974", "62997")
+```
+
+```{r}
+library(janitor)
+jackson.county<-pop.zip%>% filter(Zip %in% jackson.zip)
+jackson.county<-jackson.county %>% adorn_totals("row")
+franklin.county<-pop.zip %>% filter(Zip %in% franklin.zip)
+franklin.county<-franklin.county %>% adorn_totals("row")
+perry.county<-pop.zip %>% filter(Zip %in% perry.zip)
+perry.county<-perry.county %>% adorn_totals("row")
+randolph.county<-pop.zip %>% filter(Zip %in% randolph.zip)
+randolph.county<-randolph.county %>% adorn_totals("row")
+williamson.county<-pop.zip %>% filter(Zip %in% williamson.zip)
+williamson.county<-williamson.county %>% adorn_totals("row")
+district<-rbind(jackson.county[13,], franklin.county[3,], perry.county[2,], randolph.county[2,], williamson.county[13,])
+colnames(district)<-c("County", "TotalPop", "MalePop", "FemalePop", "MaleU14", "Male15-17", "Male18-20", "Male21-24", "Male25-29", "Male30-39", "Male40-49", "Male50-64", "MaleOver65", "FemaleU14", "Female15-17", "Female18-20", "Female21-24", "Female25-29", "Female30-39", "Female40-49", "Female50-64", "FemaleOver65", "ForeignBorn", "veteran")
+district<-district[,1:24] %>% adorn_totals("row")
+district<-district[,-1]
+rownames(district)<-c("Jackson", "Franklin", "Perry", "Randolph", "Williamson", "Total")
+district
+write.csv(district, "district.csv")
+```
+
+```{r}
+col_index <- seq(1:ncol(race.zip)) 
+racenoe.zip<-race.zip %>% select(col_index[col_index %% 2 != 0])
+colnames(racenoe.zip)<-c("Zip", "White", "Black", "Native", "Asian", "Hawaiian", "Other", "Multiple", "Hispanic")
+jackson.county.race<-racenoe.zip%>% filter(Zip %in% jackson.zip)
+jackson.county.race<-jackson.county.race %>% adorn_totals("row")
+franklin.county.race<-racenoe.zip %>% filter(Zip %in% franklin.zip)
+franklin.county.race<-franklin.county.race %>% adorn_totals("row")
+perry.county.race<-racenoe.zip %>% filter(Zip %in% perry.zip)
+perry.county.race<-perry.county.race %>% adorn_totals("row")
+randolph.county.race<-racenoe.zip %>% filter(Zip %in% randolph.zip)
+randolph.county.race<-randolph.county.race %>% adorn_totals("row")
+williamson.county.race<-racenoe.zip %>% filter(Zip %in% williamson.zip)
+williamson.county.race<-williamson.county.race %>% adorn_totals("row")
+district.race<-rbind(jackson.county.race[13,], franklin.county.race[3,], perry.county.race[2,], randolph.county.race[2,], williamson.county.race[13,])
+race<-district.race[,2:9]
+totals<-colSums(race)
+race[6,1]<-totals[1]
+race[6,2]<-totals[2]
+race[6,3]<-totals[3]
+race[6,4]<-totals[4]
+race[6,5]<-totals[5]
+race[6,6]<-totals[6]
+race[6,7]<-totals[7]
+race[6,8]<-totals[8]
+rownames(race)<-c("Jackson", "Franklin", "Perry", "Randolph", "Williamson", "Total")
+race
+write.csv(race, "districtrace.csv")
+```
+
+```{r}
+col_index <- seq(1:ncol(housing.zip)) 
+housingnoe.zip<-housing.zip %>% select(col_index[col_index %% 2 != 0])
+colnames(housingnoe.zip)<-c("Zip", "HousingUnits", "OwnerOccupied", "MedianValue", "MortgageValue", "NoMortgage", "MedianHousingCost")
+jackson.county.housing<-housingnoe.zip%>% filter(Zip %in% jackson.zip)
+jackson.county.housing<-jackson.county.housing %>% adorn_totals("row")
+franklin.county.housing<-housingnoe.zip %>% filter(Zip %in% franklin.zip)
+franklin.county.housing<-franklin.county.housing %>% adorn_totals("row")
+perry.county.housing<-housingnoe.zip %>% filter(Zip %in% perry.zip)
+perry.county.housing<-perry.county.housing %>% adorn_totals("row")
+randolph.county.housing<-housingnoe.zip %>% filter(Zip %in% randolph.zip)
+randolph.county.housing<-randolph.county.housing %>% adorn_totals("row")
+williamson.county.housing<-housingnoe.zip %>% filter(Zip %in% williamson.zip)
+williamson.county.housing<-williamson.county.housing %>% adorn_totals("row")
+district.housing<-rbind(jackson.county.housing[13,], franklin.county.housing[3,], perry.county.housing[2,], randolph.county.housing[2,], williamson.county.housing[13,])
+district.housing
+district.housing[1,c(4:7)]<-district.housing[1,c(4:7)]/12
+district.housing[2,c(4:7)]<-district.housing[2,c(4:7)]/2
+district.housing[5,c(4:7)]<-district.housing[5,c(4:7)]/12
+housing<-district.housing[,2:7]
+totals<-colSums(housing)
+housing[6,1]<-totals[1]
+housing[6,2]<-totals[2]
+housing[6,3]<-totals[3]
+housing[6,4]<-totals[4]
+housing[6,5]<-totals[5]
+housing[6,6]<-totals[6]
+rownames(housing)<-c("Jackson", "Franklin", "Perry", "Randolph", "Williamson", "Total")
+housing[6,3]<-mean(as.numeric(unlist(housing[c(1:5),3])))
+housing[6,4]<-mean(as.numeric(unlist(housing[c(1:5),4])))
+housing[6,5]<-mean(as.numeric(unlist(housing[c(1:5),5])))
+housing[6,6]<-mean(as.numeric(unlist(housing[c(1:5),6])))
+housing
+write.csv(housing, "districthousing.csv")
+```
+
+```{r}
+col_index <- seq(1:ncol(living.zip)) 
+livingnoe.zip<-living.zip %>% select(col_index[col_index %% 2 != 0])
+livingnoe.zip$otherthanenglish<-livingnoe.zip[,5]-livingnoe.zip[,6]
+livingnoe.zip<-livingnoe.zip[,-5]
+livingnoe.zip<-livingnoe.zip[,-5]
+colnames(livingnoe.zip)<-c("Zip", "Households", "NoComputer", "SameHouse", "Broadband", "LanguageOtherEnglishover5")
+livingnoe.zip$LanguageOtherEnglishover5<-as.numeric(unlist(livingnoe.zip$LanguageOtherEnglishover5))
+jackson.county.living<-livingnoe.zip%>% filter(Zip %in% jackson.zip)
+jackson.county.living<-jackson.county.living %>% adorn_totals("row")
+franklin.county.living<-livingnoe.zip %>% filter(Zip %in% franklin.zip)
+franklin.county.living<-franklin.county.living %>% adorn_totals("row")
+perry.county.living<-livingnoe.zip %>% filter(Zip %in% perry.zip)
+perry.county.living<-perry.county.living %>% adorn_totals("row")
+randolph.county.living<-livingnoe.zip %>% filter(Zip %in% randolph.zip)
+randolph.county.living<-randolph.county.living %>% adorn_totals("row")
+williamson.county.living<-livingnoe.zip %>% filter(Zip %in% williamson.zip)
+williamson.county.living<-williamson.county.living %>% adorn_totals("row")
+district.living<-rbind(jackson.county.living[13,], franklin.county.living[3,], perry.county.living[2,], randolph.county.living[2,], williamson.county.living[13,])
+district.living
+living<-district.living[,2:6]
+totals<-colSums(living)
+living[6,1]<-totals[1]
+living[6,2]<-totals[2]
+living[6,3]<-totals[3]
+living[6,4]<-totals[4]
+living[6,5]<-totals[5]
+rownames(living)<-c("Jackson", "Franklin", "Perry", "Randolph", "Williamson", "Total")
+living
+write.csv(living, "districtliving.csv")
+```
+
+```{r}
+col_index <- seq(1:ncol(living.zip)) 
+livingnoe.zip<-living.zip %>% select(col_index[col_index %% 2 != 0])
+colnames(livingnoe.zip)<-c("Zip", "HSorHigher", "BSorHigher")
+jackson.county.living<-livingnoe.zip%>% filter(Zip %in% jackson.zip)
+jackson.county.living<-jackson.county.living %>% adorn_totals("row")
+franklin.county.living<-livingnoe.zip %>% filter(Zip %in% franklin.zip)
+franklin.county.living<-franklin.county.living %>% adorn_totals("row")
+perry.county.living<-livingnoe.zip %>% filter(Zip %in% perry.zip)
+perry.county.living<-perry.county.living %>% adorn_totals("row")
+randolph.county.living<-livingnoe.zip %>% filter(Zip %in% randolph.zip)
+randolph.county.living<-randolph.county.living %>% adorn_totals("row")
+williamson.county.living<-livingnoe.zip %>% filter(Zip %in% williamson.zip)
+williamson.county.living<-williamson.county.living %>% adorn_totals("row")
+district.living<-rbind(jackson.county.living[13,], franklin.county.living[3,], perry.county.living[2,], randolph.county.living[2,], williamson.county.living[13,])
+district.living
+living<-district.living[,2:3]
+totals<-colSums(living)
+living[6,1]<-totals[1]
+living[6,2]<-totals[2]
+rownames(living)<-c("Jackson", "Franklin", "Perry", "Randolph", "Williamson", "Total")
+living
+write.csv(living, "districtliving.csv")
+```
+
+```{r}
+col_index <- seq(1:ncol(income.zip)) 
+incomenoe.zip<-income.zip %>% select(col_index[col_index %% 2 != 0])
+
+colnames(incomenoe.zip)<-c("Zip", "MedianIncome", "PerCapitaIncome")
+jackson.county.income<-incomenoe.zip%>% filter(Zip %in% jackson.zip)
+jackson.county.income<-jackson.county.income %>% adorn_totals("row")
+franklin.county.income<-incomenoe.zip %>% filter(Zip %in% franklin.zip)
+franklin.county.income<-franklin.county.income %>% adorn_totals("row")
+perry.county.income<-incomenoe.zip %>% filter(Zip %in% perry.zip)
+perry.county.income<-perry.county.income %>% adorn_totals("row")
+randolph.county.income<-incomenoe.zip %>% filter(Zip %in% randolph.zip)
+randolph.county.income<-randolph.county.income %>% adorn_totals("row")
+williamson.county.income<-incomenoe.zip %>% filter(Zip %in% williamson.zip)
+williamson.county.income<-williamson.county.income %>% adorn_totals("row")
+district.income<-rbind(jackson.county.income[13,], franklin.county.income[3,], perry.county.income[2,], randolph.county.income[2,], williamson.county.income[13,])
+district.income
+income<-district.income[,2:3]
+totals<-colSums(income)
+income[6,1]<-totals[1]
+income[6,2]<-totals[2]
+rownames(income)<-c("Jackson", "Franklin", "Perry", "Randolph", "Williamson", "Total")
+income
+write.csv(income, "districtincome.csv")
+```
+
+```{r}
+demographic.finish<-cbind(district, race, housing, living, income)
+demographic.finish
+write.csv(demographic.finish, "demographic.csv")
+```
+
+```{r}
+zip.codes<-c(jackson.zip, perry.zip, randolph.zip, williamson.zip, franklin.zip)
+district.age<-pop.zip %>% filter(Zip %in% zip.codes)
+district.age$County<-district.age %>% 
+  mutate(
+    County = case_when(
+      Zip %in% jackson.zip ~ "Jackson",
+      Zip %in% perry.zip ~ "Perry",
+      Zip %in% randolph.zip ~ "Randolph",
+      Zip %in% williamson.zip ~ "Williamson",
+      Zip %in% franklin.zip ~ "Franklin", TRUE ~NA_character_)
+    )
+district.age$county<-district.age$County$County
+district.age<-district.age[,-25]
+head(district.age)
+library(ggplot2)
+p<-ggplot(district.age, aes(y= reorder(Zip, TotalPop), x=TotalPop)) + geom_col()
+p + theme_minimal() + 
+  labs(title = "Population in District based on Zip Code", 
+       subtitle = "2014-2019 5-year ACS values for Zip Codes in JALC District", 
+       y = "Zip Codes", 
+       x = "Population", 
+       caption = "Source: ACS Data Profile variable B01001_001 via the tidycensus R package")
+```
+```{r}
+library(reshape2)
+long.age<-melt(district.age, id.vars=c("county", "Zip"), variable.name="category")
+long.age %>% filter(grepl("-|65|14", category))
+sex<-c(rep(c("m", "f"), each=322))
+long.age$sex<-sex
+long.age$category<-gsub("Female", "", long.age$category)
+long.age$category<-gsub("Male", "", long.age$category)
+ggplot(long.age, aes(x=value, y=category, fill=sex)) + geom_col()
+```
+```{r}
+library(choroplethrZip)
+library(ggplot2)
+data(df_pop_zip)
+choro = choroplethrZip::ZipChoropleth$new(df_pop_zip)
+region<-c("illinois")
+choro$prepare_map()
+data("zip.regions")
+region_zips = zip.regions[zip.regions$state.name %in% region, "region"]
+region_df=choro$choropleth.df[choro$choropleth.df$region %in% zip.codes, ]
+choro$render_helper(region_df, "", choro$theme_clean()) +
+  coord_map() +
+  scale_fill_brewer(palette = 'Spectral') +
+  labs(fill='Population')
+```
+```{r}
+library(tidyverse)
+income.choro<-cbind(incomenoe.zip[,1], incomenoe.zip[,3])
+colnames(income.choro)<-c("region", "value")
+#put in dataframe with region for zip and value for what you are looking for after the $new
+choro = choroplethrZip::ZipChoropleth$new(income.choro)
+region<-c("illinois")
+choro$prepare_map()
+data("zip.regions")
+region_zips = zip.regions[zip.regions$state.name %in% region, "region"]
+region_df=choro$choropleth.df[choro$choropleth.df$region %in% zip.codes, ]
+choro$render_helper(region_df, "", choro$theme_clean()) +
+  coord_map() +
+  scale_fill_brewer(palette = 'Spectral') +
+  labs(fill='Income')
+```
+
